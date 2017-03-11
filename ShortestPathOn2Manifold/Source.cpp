@@ -475,55 +475,51 @@ int main()
 		};
 		if( aFaces[ 0 ] && aFaces[ 1 ] )
 		{
-			//for( int iter = 0; iter < 10; iter++ )
+			for( int iter = 0; iter < 10; iter++ )
 			{
 				if( collisions.size() > 1 )
 				{
 #pragma omp parallel for
 					for( int i = 0; i < collisions.size(); i++ )
 					{
+						float3 point0 , point1;
 						if( i == 0 )
 						{
-							collisions[ i ].dt =
-								collisions[ i ].norm * points[ 1 ] +
-								der( collisions[ i ] , collisions[ i + 1 ] ) +
-								-2.0f * (
-									collisions[ i ].t + collisions[ i ].norm * collisions[ i ].pos
-									)
-								;
+							point0 = points[ 1 ];
+							point1 = collisions[ i + 1 ].getPos();
 						} else if( i == collisions.size() - 1 )
 						{
-							collisions[ i ].dt =
-								collisions[ i ].norm * points[ 0 ] +
-								der( collisions[ i ] , collisions[ i - 1 ] ) +
-								-2.0f * (
-									collisions[ i ].t + collisions[ i ].norm * collisions[ i ].pos
-									)
-								;
+							point0 = collisions[ i - 1 ].getPos();
+							point1 = points[ 0 ];
 						} else
 						{
-							collisions[ i ].dt =
-								der( collisions[ i ] , collisions[ i - 1 ] ) +
-								der( collisions[ i ] , collisions[ i + 1 ] ) +
-								-2.0f * (
-									collisions[ i ].t + collisions[ i ].norm * collisions[ i ].pos
-									)
-								;
+							point0 = collisions[ i - 1 ].getPos();
+							point1 = collisions[ i + 1 ].getPos();
 						}
+						
 
+						float B = collisions[ i ].t + collisions[ i ].norm * collisions[ i ].pos;
+						float dist0 = collisions[ i ].getPos().dist( point0 ) + 0.001f;
+						float dt0 = collisions[ i ].norm * point0 - B;
+						float dist1 = collisions[ i ].getPos().dist( point1 ) + 0.001f;
+						float dt1 = collisions[ i ].norm * point1 - B;
+						collisions[ i ].dt = dt0 / dist0 + dt1 / dist1;
 					}
 				} else if( collisions.size() )
 				{
-					auto norm = collisions[ 0 ].norm ^ ( ( points[ 0 ] - collisions[ 0 ].pos ) ^ collisions[ 0 ].norm ).norm();
-					float dist0 = ( points[ 0 ] - norm * ( points[ 0 ] - collisions[ 0 ].pos ) ).mod();
-					//float dist1 = ( points[ 1 ] - norm * ( points[ 1 ] - collisions[ 0 ].pos ) ).mod();
-					auto v = ( points[ 1 ] - points[ 0 ] ).norm();
-					auto proj = points[ 0 ] + v * dist0 / ( v * norm );
-					collisions[ 0 ].dt = collisions[ 0 ].norm * ( proj - collisions[ 0 ].pos ) - collisions[ 0 ].t;
+					float dist0 = collisions[ 0 ].getPos().dist( points[ 0 ] );
+					float dt0 = collisions[ 0 ].norm * points[ 0 ] - (
+						collisions[ 0 ].t + collisions[ 0 ].norm * collisions[ 0 ].pos
+						);
+					float dist1 = collisions[ 0 ].getPos().dist( points[ 1 ] );
+					float dt1 = collisions[ 0 ].norm * points[ 1 ] -(
+						collisions[ 0 ].t + collisions[ 0 ].norm * collisions[ 0 ].pos
+						);
+					collisions[ 0 ].dt = dt0 / dist0 + dt1 / dist1;
 				}
 				for( auto &col : collisions )
 				{
-					col.t += col.dt * 0.1f;
+					col.t += col.dt * 0.01f;
 					col.t = fmaxf( 0.0f , fminf( col.t , col.length ) );
 				}
 			}
